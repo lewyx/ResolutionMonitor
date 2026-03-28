@@ -1,5 +1,8 @@
 # ResMon.ps1 - Resolution Monitor system tray tool
 
+$applicationShortName = "Resolution Monitor"
+$applicationFullName = "PanSoft $applicationShortName"
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -308,12 +311,39 @@ $form = New-Object System.Windows.Forms.Form
 $form.ShowInTaskbar = $false
 $form.WindowState = 'Minimized'
 $form.Visible = $false
-$form.FormBorderStyle = 'FixedToolWindow'
+$form.FormBorderStyle = 'None'
 $form.Size = New-Object System.Drawing.Size(0, 0)
+$form.Opacity = 0
+$form.Add_FormClosing({ param($s, $e) $e.Cancel = $true })
+
+# Hook into display change messages
+Add-Type -TypeDefinition @"
+using System;
+using System.Windows.Forms;
+
+public class MessageWindow : NativeWindow {
+    public event EventHandler DisplayChanged;
+
+    protected override void WndProc(ref Message m) {
+        const int WM_DISPLAYCHANGE = 0x007E;
+        const int WM_DPICHANGED = 0x02E0;
+        const int WM_SETTINGCHANGE = 0x001A;
+
+        base.WndProc(ref m);
+        if ((DisplayChanged != null) && (m.Msg == WM_DISPLAYCHANGE || m.Msg == WM_DPICHANGED || m.Msg == WM_SETTINGCHANGE)) {
+            DisplayChanged(this, EventArgs.Empty);
+        }
+    }
+}
+"@ -ReferencedAssemblies System.Windows.Forms
+
+$msgWindow = New-Object MessageWindow
+$msgWindow.CreateHandle((New-Object System.Windows.Forms.CreateParams))
+$msgWindow.Add_DisplayChanged({ & $script:Refresh })
 
 $notifyIcon = New-Object System.Windows.Forms.NotifyIcon
 $notifyIcon.Visible = $true
-$notifyIcon.Text = "ResMon"
+$notifyIcon.Text = $applicationFullName
 
 $contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
 $menuSetFullHD = $contextMenu.Items.Add("Set FullHD")
@@ -326,7 +356,7 @@ $notifyIcon.ContextMenuStrip = $contextMenu
 
 # ---- Auto-start Logic ----
 $script:AutoStartRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-$script:AutoStartValueName = "PanSoft Resolution Monitor"
+$script:AutoStartValueName = $applicationFullName
 
 # Update auto-start checkbox before menu opens
 $contextMenu.Add_Opening({
@@ -369,8 +399,8 @@ $script:Refresh = {
 
     $old = $notifyIcon.Text
     $notifyIcon.Text = "${s}% @ ${w}x${h}"
-    if ($old -ne $notifyIcon.Text) {
-        $notifyIcon.ShowBalloonTip(1000, "ResMon", $notifyIcon.Text, [System.Windows.Forms.ToolTipIcon]::Info)
+    if (($old -ne $applicationFullName) -and ($old -ne $notifyIcon.Text)) {
+        $notifyIcon.ShowBalloonTip(5000, "Resolution Monitor", $notifyIcon.Text, [System.Windows.Forms.ToolTipIcon]::Info)
     }
 }
 
@@ -402,6 +432,14 @@ $menuExit.Add_Click({
     $notifyIcon.Visible = $false
     $notifyIcon.Dispose()
     [System.Windows.Forms.Application]::Exit()
+})
+
+$notifyIcon.Add_Click({
+    param($sender, $e)
+    if ($e.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
+        $form.Activate()
+        $contextMenu.Show([System.Windows.Forms.Cursor]::Position)
+    }
 })
 
 # ---- Timer ----
