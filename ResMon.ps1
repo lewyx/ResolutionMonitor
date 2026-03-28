@@ -319,8 +319,43 @@ $contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
 $menuSetFullHD = $contextMenu.Items.Add("Set FullHD")
 $menuRefresh   = $contextMenu.Items.Add("Refresh")
 $contextMenu.Items.Add("-")  # separator
+$menuAutoStart = $contextMenu.Items.Add("Auto start")
+$menuAutoStart.CheckOnClick = $true
 $menuExit      = $contextMenu.Items.Add("Exit")
 $notifyIcon.ContextMenuStrip = $contextMenu
+
+# ---- Auto-start Logic ----
+$script:AutoStartRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+$script:AutoStartValueName = "PanSoft Resolution Monitor"
+
+function Test-AutoStart {
+    try {
+        $prop = Get-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -ErrorAction SilentlyContinue
+        return $null -ne $prop
+    } catch {
+        return $false
+    }
+}
+
+function Set-AutoStart {
+    try {
+        $scriptPath = $PSCommandPath
+        $value = "powershell.exe -WindowStyle Hidden -File `"$scriptPath`""
+        Set-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -Value $value
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Remove-AutoStart {
+    try {
+        Remove-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -ErrorAction SilentlyContinue
+        return $true
+    } catch {
+        return $false
+    }
+}
 
 # ---- Refresh Logic ----
 $script:Refresh = {
@@ -335,6 +370,9 @@ $script:Refresh = {
     } else {
         $notifyIcon.Icon = $iconWarning
     }
+
+    # Update auto-start checkbox
+    $menuAutoStart.Checked = Test-AutoStart
 }
 
 # ---- Event Handlers ----
@@ -346,6 +384,18 @@ $menuSetFullHD.Add_Click({
 
 $menuRefresh.Add_Click({
     & $script:Refresh
+})
+
+$menuAutoStart.Add_Click({
+    if ($menuAutoStart.Checked) {
+        if (-not (Set-AutoStart)) {
+            $menuAutoStart.Checked = $false
+        }
+    } else {
+        if (-not (Remove-AutoStart)) {
+            $menuAutoStart.Checked = $true
+        }
+    }
 })
 
 $menuExit.Add_Click({
