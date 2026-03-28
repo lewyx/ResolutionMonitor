@@ -328,20 +328,18 @@ $notifyIcon.ContextMenuStrip = $contextMenu
 $script:AutoStartRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 $script:AutoStartValueName = "PanSoft Resolution Monitor"
 
-function Test-AutoStart {
+# Update auto-start checkbox before menu opens
+$contextMenu.Add_Opening({
     try {
-        $prop = Get-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -ErrorAction SilentlyContinue
-        return $null -ne $prop
+        $menuAutoStart.Checked = $null -ne (Get-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -ErrorAction SilentlyContinue)
     } catch {
-        return $false
+        $menuAutoStart.Checked = $false
     }
-}
+})
 
 function Set-AutoStart {
     try {
-        $scriptPath = $PSCommandPath
-        $value = "powershell.exe -WindowStyle Hidden -File `"$scriptPath`""
-        Set-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -Value $value
+        Set-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -Value "powershell.exe -WindowStyle Hidden -File `"$PSCommandPath`""
         return $true
     } catch {
         return $false
@@ -363,16 +361,17 @@ $script:Refresh = {
     [DisplayHelper]::GetResolution([ref]$w, [ref]$h)
     $s = [DisplayHelper]::GetScaling()
 
-    $notifyIcon.Text = "${s}% @ ${w}x${h}"
-
     if ($w -eq 1920 -and $s -eq 100) {
         $notifyIcon.Icon = $iconMonitor
     } else {
         $notifyIcon.Icon = $iconWarning
     }
 
-    # Update auto-start checkbox
-    $menuAutoStart.Checked = Test-AutoStart
+    $old = $notifyIcon.Text
+    $notifyIcon.Text = "${s}% @ ${w}x${h}"
+    if ($old -ne $notifyIcon.Text) {
+        $notifyIcon.ShowBalloonTip(1000, "ResMon", $notifyIcon.Text, [System.Windows.Forms.ToolTipIcon]::Info)
+    }
 }
 
 # ---- Event Handlers ----
