@@ -369,7 +369,7 @@ $contextMenu.Add_Opening({
 
 function Set-AutoStart {
     try {
-        Set-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -Value "powershell.exe -WindowStyle Hidden -File `"$PSCommandPath`""
+        Set-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -Value "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`""
         return $true
     } catch {
         return $false
