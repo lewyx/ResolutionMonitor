@@ -357,6 +357,7 @@ $notifyIcon.ContextMenuStrip = $contextMenu
 # ---- Auto-start Logic ----
 $script:AutoStartRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 $script:AutoStartValueName = $applicationFullName
+$script:VbsPath = Join-Path (Split-Path $PSCommandPath -Parent) "ResMon.vbs"
 
 # Update auto-start checkbox before menu opens
 $contextMenu.Add_Opening({
@@ -369,7 +370,7 @@ $contextMenu.Add_Opening({
 
 function Set-AutoStart {
     try {
-        Set-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -Value "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`""
+        Set-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -Value "wscript.exe `"$script:VbsPath`""
         return $true
     } catch {
         return $false
@@ -431,7 +432,7 @@ $menuExit.Add_Click({
     $timer.Stop()
     $notifyIcon.Visible = $false
     $notifyIcon.Dispose()
-    [System.Windows.Forms.Application]::Exit()
+    [System.Environment]::Exit(0)
 })
 
 $notifyIcon.Add_Click({
