@@ -1,7 +1,75 @@
 # ResMon.ps1 - Resolution Monitor system tray tool
 
+$applicationDeveloper = "PanSoft"
 $applicationShortName = "Resolution Monitor"
-$applicationFullName = "PanSoft $applicationShortName"
+$applicationFullName = "$applicationDeveloper $applicationShortName"
+
+# Registry path for settings
+$script:SettingsRegPath = "HKCU:\Software\$applicationDeveloper\$applicationShortName"
+
+# Default target settings
+$script:TargetResolutions = @(
+    @{Width = 1024; Height = 768},
+    @{Width = 1152; Height = 864},
+    @{Width = 1280; Height = 720},
+    @{Width = 1280; Height = 768},
+    @{Width = 1280; Height = 800},
+    @{Width = 1280; Height = 1024},
+    @{Width = 1360; Height = 768},
+    @{Width = 1366; Height = 768},
+    @{Width = 1440; Height = 900},
+    @{Width = 1600; Height = 900},
+    @{Width = 1600; Height = 1200},
+    @{Width = 1680; Height = 1050},
+    @{Width = 1920; Height = 1080},
+    @{Width = 1920; Height = 1200},
+    @{Width = 2048; Height = 1152},
+    @{Width = 2560; Height = 1440},
+    @{Width = 2560; Height = 1600},
+    @{Width = 3200; Height = 1800},
+    @{Width = 3840; Height = 2160},
+    @{Width = 5120; Height = 2880},
+    @{Width = 7680; Height = 4320}
+)
+$script:TargetScalings = @(100, 125, 150, 175, 200)
+
+function Reload-TargetState {
+    $script:TargetState = @{ Width = 1920; Height = 1080; Scaling = 100 }
+    # Load TargetState from registry
+    try {
+        if (Test-Path $script:SettingsRegPath) {
+            $width = (Get-ItemProperty -Path $script:SettingsRegPath -Name "TargetWidth" -ErrorAction SilentlyContinue).TargetWidth
+            $height = (Get-ItemProperty -Path $script:SettingsRegPath -Name "TargetHeight" -ErrorAction SilentlyContinue).TargetHeight
+            $scaling = (Get-ItemProperty -Path $script:SettingsRegPath -Name "TargetScaling" -ErrorAction SilentlyContinue).TargetScaling
+            if ($width -and $height -and $scaling) {
+                $script:TargetState = @{Width = $width; Height = $height; Scaling = $scaling}
+            }
+        }
+    } catch {}
+
+    # Update menus' checkmarks
+    foreach ($item in $script:menuTargetRes.DropDownItems) {
+        $item.Checked = ($item.Tag.Width -eq $script:TargetState.Width -and $item.Tag.Height -eq $script:TargetState.Height)
+    }
+    foreach ($item in $script:menuTargetScale.DropDownItems) {
+        $item.Checked = ($item.Tag -eq $script:TargetState.Scaling)
+    }
+    Refresh
+}
+
+function Change-TargetState {
+    try {
+        if (-not (Test-Path $script:SettingsRegPath)) {
+            New-Item -Path $script:SettingsRegPath -Force | Out-Null
+        }
+        Set-ItemProperty -Path $script:SettingsRegPath -Name "TargetWidth" -Value $script:TargetState.Width
+        Set-ItemProperty -Path $script:SettingsRegPath -Name "TargetHeight" -Value $script:TargetState.Height
+        Set-ItemProperty -Path $script:SettingsRegPath -Name "TargetScaling" -Value $script:TargetState.Scaling
+    } catch {
+        Write-Warning "Failed to save settings to registry: $_"
+    }
+    Reload-TargetState
+}
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -339,7 +407,7 @@ public class MessageWindow : NativeWindow {
 
 $msgWindow = New-Object MessageWindow
 $msgWindow.CreateHandle((New-Object System.Windows.Forms.CreateParams))
-$msgWindow.Add_DisplayChanged({ & $script:Refresh })
+$msgWindow.Add_DisplayChanged({ Refresh })
 
 $notifyIcon = New-Object System.Windows.Forms.NotifyIcon
 $notifyIcon.Visible = $true
@@ -349,50 +417,72 @@ $contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
 $menuSetFullHD = $contextMenu.Items.Add("Set FullHD")
 $menuRefresh   = $contextMenu.Items.Add("Refresh")
 $contextMenu.Items.Add("-")  # separator
-$menuAutoStart = $contextMenu.Items.Add("Auto start")
+
+# Options submenu
+$menuOptions = New-Object System.Windows.Forms.ToolStripMenuItem("Options")
+
+# Target resolution submenu
+$script:menuTargetRes = New-Object System.Windows.Forms.ToolStripMenuItem("Target resolution")
+foreach ($res in $script:TargetResolutions) {
+    $item = New-Object System.Windows.Forms.ToolStripMenuItem("$($res.Width) x $($res.Height)")
+    $item.Tag = $res
+    $item.CheckOnClick = $true
+    $item.Add_Click({
+        param($sender, $e)
+        $script:TargetState = $sender.Tag + @{Scaling = $script:TargetState.Scaling}
+        Change-TargetState
+    })
+    $script:menuTargetRes.DropDownItems.Add($item) | Out-Null
+}
+$menuOptions.DropDownItems.Add($script:menuTargetRes) | Out-Null
+
+# Target scaling submenu
+$script:menuTargetScale = New-Object System.Windows.Forms.ToolStripMenuItem("Target scaling")
+foreach ($scale in $script:TargetScalings) {
+    $item = New-Object System.Windows.Forms.ToolStripMenuItem("$scale%")
+    $item.Tag = $scale
+    $item.CheckOnClick = $true
+    $item.Add_Click({
+        param($sender, $e)
+        $script:TargetState.Scaling = $sender.Tag
+        Change-TargetState
+    })
+    $script:menuTargetScale.DropDownItems.Add($item) | Out-Null
+}
+$menuOptions.DropDownItems.Add($script:menuTargetScale) | Out-Null
+
+$menuOptions.DropDownItems.Add("-")  # separator
+# Auto start option
+$menuAutoStart = New-Object System.Windows.Forms.ToolStripMenuItem("Auto start")
 $menuAutoStart.CheckOnClick = $true
-$menuExit      = $contextMenu.Items.Add("Exit")
+$menuOptions.DropDownItems.Add($menuAutoStart) | Out-Null
+
+$contextMenu.Items.Add($menuOptions) | Out-Null
+$contextMenu.Items.Add("-")  # separator
+$menuExit = $contextMenu.Items.Add("Exit")
 $notifyIcon.ContextMenuStrip = $contextMenu
 
 # ---- Auto-start Logic ----
-$script:AutoStartRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-$script:AutoStartValueName = $applicationFullName
-$script:VbsPath = Join-Path (Split-Path $PSCommandPath -Parent) "ResMon.vbs"
+$AutoStartRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+$AutoStartValueName = $applicationFullName
+$VbsPath = Join-Path (Split-Path $PSCommandPath -Parent) "ResMon.vbs"
 
 # Update auto-start checkbox before menu opens
 $contextMenu.Add_Opening({
     try {
-        $menuAutoStart.Checked = $null -ne (Get-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -ErrorAction SilentlyContinue)
+        $menuAutoStart.Checked = $null -ne (Get-ItemProperty -Path $AutoStartRegPath -Name $AutoStartValueName -ErrorAction SilentlyContinue)
     } catch {
         $menuAutoStart.Checked = $false
     }
 })
 
-function Set-AutoStart {
-    try {
-        Set-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -Value "wscript.exe `"$script:VbsPath`""
-        return $true
-    } catch {
-        return $false
-    }
-}
-
-function Remove-AutoStart {
-    try {
-        Remove-ItemProperty -Path $script:AutoStartRegPath -Name $script:AutoStartValueName -ErrorAction SilentlyContinue
-        return $true
-    } catch {
-        return $false
-    }
-}
-
 # ---- Refresh Logic ----
-$script:Refresh = {
+function Refresh {
     $w = 0; $h = 0
     [DisplayHelper]::GetResolution([ref]$w, [ref]$h)
     $s = [DisplayHelper]::GetScaling()
 
-    if ($w -eq 1920 -and $s -eq 100) {
+    if ($w -eq $script:TargetState.Width -and $h -eq $script:TargetState.Height -and $s -eq $script:TargetState.Scaling) {
         $notifyIcon.Icon = $iconMonitor
     } else {
         $notifyIcon.Icon = $iconWarning
@@ -407,23 +497,29 @@ $script:Refresh = {
 
 # ---- Event Handlers ----
 $menuSetFullHD.Add_Click({
-    [DisplayHelper]::SetResolution(1920, 1200) | Out-Null
-    [DisplayHelper]::SetScaling(100) | Out-Null
-    & $script:Refresh
+    [DisplayHelper]::SetResolution($script:TargetState.Width, $script:TargetState.Height) | Out-Null
+    [DisplayHelper]::SetScaling($script:TargetState.Scaling) | Out-Null
+    Refresh
 })
 
 $menuRefresh.Add_Click({
-    & $script:Refresh
+    Refresh
 })
 
 $menuAutoStart.Add_Click({
     if ($menuAutoStart.Checked) {
-        if (-not (Set-AutoStart)) {
+        try {
+            Set-ItemProperty -Path $AutoStartRegPath -Name $AutoStartValueName -Value "wscript.exe `"$VbsPath`""
+        } catch {
             $menuAutoStart.Checked = $false
         }
     } else {
         if (-not (Remove-AutoStart)) {
-            $menuAutoStart.Checked = $true
+            try {
+                Remove-ItemProperty -Path $AutoStartRegPath -Name $AutoStartValueName -ErrorAction SilentlyContinue
+            } catch {
+                $menuAutoStart.Checked = $true
+            }
         }
     }
 })
@@ -446,9 +542,9 @@ $notifyIcon.Add_Click({
 # ---- Timer ----
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 30000
-$timer.Add_Tick({ & $script:Refresh })
+$timer.Add_Tick({ Refresh })
 
 # ---- Start ----
-& $script:Refresh
+Reload-TargetState
 $timer.Start()
 [System.Windows.Forms.Application]::Run($form)
