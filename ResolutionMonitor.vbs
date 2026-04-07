@@ -81,7 +81,7 @@ function ReloadTargetState {
     }
 
     # If no standard resolution matched, check Custom and update its display
-    if ($script:menuCustomRes.Checked = -not $found) {
+    if ($script:menuCustomRes.Checked = -not $found) { # intentional assignment
         $customSetting.Width = $script:TargetState.Width
         $customSetting.Height = $script:TargetState.Height
     }
@@ -97,8 +97,8 @@ function ReloadTargetState {
     }
 
     # If no standard scaling matched, check Custom and update its display
-    if ($script:menuCustomScale.Checked = -not $found) {
-        $script:menuCustomScale.Tag = $script:TargetState.Scaling
+    if ($script:menuCustomScale.Checked = -not $found) { # intentional assignment
+        $customSetting.Scaling = $script:TargetState.Scaling
     }
     $script:menuCustomScale.Tag = $customSetting.Scaling
     $script:menuCustomScale.Text = ""Custom: $($customSetting.Scaling)%""
@@ -416,14 +416,7 @@ $iconMonitor = [DisplayHelper]::GetShellIcon(15)   # computer/monitor
 $iconWarning = [DisplayHelper]::GetShellIcon(77)   # yellow warning triangle
 
 # ---- UI Setup ----
-$form = New-Object System.Windows.Forms.Form
-$form.ShowInTaskbar = $false
-$form.WindowState = 'Minimized'
-$form.Visible = $false
-$form.FormBorderStyle = 'None'
-$form.Size = New-Object System.Drawing.Size(0, 0)
-$form.Opacity = 0
-$form.Add_FormClosing({ param($s, $e) $e.Cancel = $true })
+$appContext = New-Object System.Windows.Forms.ApplicationContext
 
 # Hook into display change messages
 Add-Type -TypeDefinition @""
@@ -603,6 +596,7 @@ $menuAutoStart.Add_Click({
 
 $menuExit.Add_Click({
     $timer.Stop()
+    $msgWindow.DestroyHandle()
     $notifyIcon.Visible = $false
     $notifyIcon.Dispose()
     [System.Environment]::Exit(0)
@@ -611,7 +605,6 @@ $menuExit.Add_Click({
 $notifyIcon.Add_Click({
     param($sender, $e)
     if ($e.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
-        $form.Activate()
         $contextMenu.Show([System.Windows.Forms.Cursor]::Position)
     }
 })
@@ -624,4 +617,4 @@ $timer.Add_Tick({ Refresh })
 # ---- Start ----
 ReloadTargetState
 $timer.Start()
-[System.Windows.Forms.Application]::Run($form)""", 0, False
+[System.Windows.Forms.Application]::Run($appContext)""", 0, False
