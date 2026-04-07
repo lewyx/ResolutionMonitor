@@ -33,42 +33,82 @@ $script:TargetResolutions = @(
 )
 $script:TargetScalings = @(100, 125, 150, 175, 200)
 
-function Reload-TargetState {
-    $script:TargetState = @{ Width = 1920; Height = 1080; Scaling = 100 }
-    # Load TargetState from registry
+function ReadSetting($name, $default) {
     try {
-        if (Test-Path $script:SettingsRegPath) {
-            $width = (Get-ItemProperty -Path $script:SettingsRegPath -Name "TargetWidth" -ErrorAction SilentlyContinue).TargetWidth
-            $height = (Get-ItemProperty -Path $script:SettingsRegPath -Name "TargetHeight" -ErrorAction SilentlyContinue).TargetHeight
-            $scaling = (Get-ItemProperty -Path $script:SettingsRegPath -Name "TargetScaling" -ErrorAction SilentlyContinue).TargetScaling
-            if ($width -and $height -and $scaling) {
-                $script:TargetState = @{Width = $width; Height = $height; Scaling = $scaling}
-            }
-        }
+        $value = Get-ItemProperty -Path $script:SettingsRegPath -Name $name -ErrorAction SilentlyContinue
+        if ($value -and $value.$name) { return $value.$name }
     } catch {}
+    return $default
+}
 
-    # Update menus' checkmarks
+function ReadSettings($prefix) {
+    return @{ Width = ReadSetting "${prefix}Width" 1080; Height = ReadSetting "${prefix}Height" 1920; Scaling = ReadSetting "${prefix}Scaling" 100 } #FullHD in portrait mode
+}
+
+function WriteSetting($name, $value) {
+    Set-ItemProperty -Path $script:SettingsRegPath -Name $name -Value $value
+}
+
+function WriteSettings($prefix, $value) {
+    if (-not (Test-Path $script:SettingsRegPath)) {
+        New-Item -Path $script:SettingsRegPath -Force | Out-Null
+    }
+    WriteSetting "${prefix}Width" ([int]$value.Width)
+    WriteSetting "${prefix}Height" ([int]$value.Height)
+    WriteSetting "${prefix}Scaling" ([int]$value.Scaling)
+}
+
+function ReloadTargetState {
+    $script:TargetState = @{ Width = 1920; Height = 1080; Scaling = 100 }
+
+    # Load TargetState from registry
+    $loaded = ReadSettings "Target"
+    if ($loaded) {
+        $script:TargetState = $loaded
+    }
+    $script:menuApplyTarget.Text = "Apply $($script:TargetState.Scaling)% $($script:TargetState.Width)x$($script:TargetState.Height)"
+
+    # Load custom tag values from registry
+    $customSetting = ReadSettings "Custom0"
+
+    # Update resolution menu checkmarks
+    $found = $false
     foreach ($item in $script:menuTargetRes.DropDownItems) {
+        if ($item -isnot [System.Windows.Forms.ToolStripMenuItem]) { break }
         $item.Checked = ($item.Tag.Width -eq $script:TargetState.Width -and $item.Tag.Height -eq $script:TargetState.Height)
+        if ($item.Checked) { $found = $true }
     }
+
+    # If no standard resolution matched, check Custom and update its display
+    if ($script:menuCustomRes.Checked = -not $found) {
+        $customSetting.Width = $script:TargetState.Width
+        $customSetting.Height = $script:TargetState.Height
+    }
+    $script:menuCustomRes.Tag = @{Width = $customSetting.Width; Height = $customSetting.Height}
+    $script:menuCustomRes.Text = "Custom: $($script:TargetState.Width)x$($script:TargetState.Height)"
+
+    # Update scaling menu checkmarks
+    $found = $false
     foreach ($item in $script:menuTargetScale.DropDownItems) {
+        if ($item -isnot [System.Windows.Forms.ToolStripMenuItem]) { break }
         $item.Checked = ($item.Tag -eq $script:TargetState.Scaling)
+        if ($item.Checked) { $found = $true }
     }
+
+    # If no standard scaling matched, check Custom and update its display
+    if ($script:menuCustomScale.Checked = -not $found) {
+        $script:menuCustomScale.Tag = $script:TargetState.Scaling
+    }
+    $script:menuCustomScale.Tag = $customSetting.Scaling
+    $script:menuCustomScale.Text = "Custom: $($customSetting.Scaling)%"
+
     Refresh
 }
 
-function Change-TargetState {
-    try {
-        if (-not (Test-Path $script:SettingsRegPath)) {
-            New-Item -Path $script:SettingsRegPath -Force | Out-Null
-        }
-        Set-ItemProperty -Path $script:SettingsRegPath -Name "TargetWidth" -Value $script:TargetState.Width
-        Set-ItemProperty -Path $script:SettingsRegPath -Name "TargetHeight" -Value $script:TargetState.Height
-        Set-ItemProperty -Path $script:SettingsRegPath -Name "TargetScaling" -Value $script:TargetState.Scaling
-    } catch {
-        Write-Warning "Failed to save settings to registry: $_"
-    }
-    Reload-TargetState
+function ChangeTargetState {
+    WriteSettings "Target" $script:TargetState
+    WriteSettings "Custom0" ($script:menuCustomRes.Tag + @{Scaling = $script:menuCustomScale.Tag})
+    ReloadTargetState
 }
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -414,8 +454,8 @@ $notifyIcon.Visible = $true
 $notifyIcon.Text = $applicationFullName
 
 $contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
-$menuSetFullHD = $contextMenu.Items.Add("Set FullHD")
-$menuRefresh   = $contextMenu.Items.Add("Refresh")
+$script:menuApplyTarget = $contextMenu.Items.Add("Apply Target")
+$menuRefresh     = $contextMenu.Items.Add("Refresh")
 $contextMenu.Items.Add("-")  # separator
 
 # Options submenu
@@ -430,10 +470,29 @@ foreach ($res in $script:TargetResolutions) {
     $item.Add_Click({
         param($sender, $e)
         $script:TargetState = $sender.Tag + @{Scaling = $script:TargetState.Scaling}
-        Change-TargetState
+        ChangeTargetState
     })
     $script:menuTargetRes.DropDownItems.Add($item) | Out-Null
 }
+
+$script:menuTargetRes.DropDownItems.Add("-") | Out-Null
+# Custom resolution menu item
+Add-Type -AssemblyName Microsoft.VisualBasic
+$script:menuCustomRes = New-Object System.Windows.Forms.ToolStripMenuItem("Custom")
+$script:menuCustomRes.CheckOnClick = $true
+$script:menuCustomRes.Add_Click({
+    param($sender, $e)
+    $input = [Microsoft.VisualBasic.Interaction]::InputBox("Enter resolution (e.g. 1920x1080)", "Custom Resolution", "$($sender.Tag.Width) x $($sender.Tag.Height)")
+    if ($input) {
+        $numbers = ($input -replace '[^\d]', ' ').Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
+        if ($numbers.Count -ge 2) {
+            $sender.Tag = @{Width = [int]$numbers[0]; Height = [int]$numbers[-1]}
+            $script:TargetState = $sender.Tag + @{Scaling = $script:TargetState.Scaling}
+            ChangeTargetState
+        }
+    }
+})
+$script:menuTargetRes.DropDownItems.Add($script:menuCustomRes) | Out-Null
 $menuOptions.DropDownItems.Add($script:menuTargetRes) | Out-Null
 
 # Target scaling submenu
@@ -445,10 +504,29 @@ foreach ($scale in $script:TargetScalings) {
     $item.Add_Click({
         param($sender, $e)
         $script:TargetState.Scaling = $sender.Tag
-        Change-TargetState
+        ChangeTargetState
     })
     $script:menuTargetScale.DropDownItems.Add($item) | Out-Null
 }
+
+$script:menuTargetScale.DropDownItems.Add("-") | Out-Null #separator
+# Custom scaling menu item
+$script:menuCustomScale = New-Object System.Windows.Forms.ToolStripMenuItem("Custom")
+$script:menuCustomScale.Tag = 200
+$script:menuCustomScale.CheckOnClick = $true
+$script:menuCustomScale.Add_Click({
+    param($sender, $e)
+    $input = [Microsoft.VisualBasic.Interaction]::InputBox("Enter scaling percentage (e.g. 100)", "Custom Scaling", "$($sender.Tag)")
+    if ($input) {
+        $numbers = ($input -replace '[^\d]', ' ').Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
+        if ($numbers.Count -ge 1) {
+            $sender.Tag = [int]$numbers[0]
+            $script:TargetState.Scaling = $sender.Tag
+            ChangeTargetState
+        }
+    }
+})
+$script:menuTargetScale.DropDownItems.Add($script:menuCustomScale) | Out-Null
 $menuOptions.DropDownItems.Add($script:menuTargetScale) | Out-Null
 
 $menuOptions.DropDownItems.Add("-")  # separator
@@ -496,7 +574,7 @@ function Refresh {
 }
 
 # ---- Event Handlers ----
-$menuSetFullHD.Add_Click({
+$script:menuApplyTarget.Add_Click({
     [DisplayHelper]::SetResolution($script:TargetState.Width, $script:TargetState.Height) | Out-Null
     [DisplayHelper]::SetScaling($script:TargetState.Scaling) | Out-Null
     Refresh
@@ -514,12 +592,10 @@ $menuAutoStart.Add_Click({
             $menuAutoStart.Checked = $false
         }
     } else {
-        if (-not (Remove-AutoStart)) {
-            try {
-                Remove-ItemProperty -Path $AutoStartRegPath -Name $AutoStartValueName -ErrorAction SilentlyContinue
-            } catch {
-                $menuAutoStart.Checked = $true
-            }
+        try {
+            Remove-ItemProperty -Path $AutoStartRegPath -Name $AutoStartValueName -ErrorAction SilentlyContinue
+        } catch {
+            $menuAutoStart.Checked = $true
         }
     }
 })
@@ -545,6 +621,6 @@ $timer.Interval = 30000
 $timer.Add_Tick({ Refresh })
 
 # ---- Start ----
-Reload-TargetState
+ReloadTargetState
 $timer.Start()
 [System.Windows.Forms.Application]::Run($form)
