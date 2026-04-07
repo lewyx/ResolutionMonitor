@@ -1,8 +1,9 @@
-# ResMon.ps1 - Resolution Monitor system tray tool
+# ResolutionMonitor.ps1 - Resolution Monitor system tray tool
 
+$applicationVersion = "1.0"
 $applicationDeveloper = "PanSoft"
 $applicationShortName = "Resolution Monitor"
-$applicationFullName = "$applicationDeveloper $applicationShortName"
+$applicationFullName = "$applicationDeveloper $applicationShortName v$applicationVersion"
 
 # Registry path for settings
 $script:SettingsRegPath = "HKCU:\Software\$applicationDeveloper\$applicationShortName"
@@ -543,7 +544,7 @@ $notifyIcon.ContextMenuStrip = $contextMenu
 # ---- Auto-start Logic ----
 $AutoStartRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 $AutoStartValueName = $applicationFullName
-$VbsPath = Join-Path (Split-Path $PSCommandPath -Parent) "ResMon.vbs"
+$VbsPath = Join-Path (Split-Path $PSCommandPath -Parent) "ResolutionMonitor.vbs"
 
 # Update auto-start checkbox before menu opens
 $contextMenu.Add_Opening({

@@ -1,0 +1,12 @@
+#!/bin/sh
+# Rebuild ResolutionMonitor.vbs from ResolutionMonitor.ps1 if the source changed
+
+if git diff --cached --name-only | grep -q '^ResolutionMonitor\.ps1$'; then
+    echo "ResolutionMonitor.ps1 changed, rebuilding ResolutionMonitor.vbs..."
+    powershell.exe -ExecutionPolicy Bypass -NoProfile -File build.ps1
+    if [ $? -ne 0 ]; then
+        echo "ERROR: build.ps1 failed"
+        exit 1
+    fi
+    git add ResolutionMonitor.vbs
+fi

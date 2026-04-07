@@ -1,9 +1,9 @@
-# build.ps1 - Generate ResMon.vbs with embedded PowerShell script
+# build.ps1 - Generate ResolutionMonitor.vbs with embedded PowerShell script
 
 $ErrorActionPreference = "Stop"
 
-$sourceFile = Join-Path $PSScriptRoot "ResMon.ps1"
-$outputFile = Join-Path $PSScriptRoot "ResMon.vbs"
+$sourceFile = Join-Path $PSScriptRoot "ResolutionMonitor.ps1"
+$outputFile = Join-Path $PSScriptRoot "ResolutionMonitor.vbs"
 
 if (-not (Test-Path $sourceFile)) {
     Write-Error "Source file not found: $sourceFile"
