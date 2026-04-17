@@ -115,7 +115,7 @@ function ChangeTargetState {
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-Add-Type -TypeDefinition @"
+Add-Type -TypeDefinition @'
 using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -406,7 +406,7 @@ public class DisplayHelper
         return best;
     }
 }
-"@ -ReferencedAssemblies System.Drawing
+'@ -ReferencedAssemblies System.Drawing
 
 # Make process per-monitor DPI aware (best effort)
 try { [DisplayHelper]::SetProcessDpiAwareness(2) } catch {}
@@ -419,7 +419,7 @@ $iconWarning = [DisplayHelper]::GetShellIcon(77)   # yellow warning triangle
 $appContext = New-Object System.Windows.Forms.ApplicationContext
 
 # Hook into display change messages
-Add-Type -TypeDefinition @"
+Add-Type -TypeDefinition @'
 using System;
 using System.Windows.Forms;
 
@@ -437,7 +437,7 @@ public class MessageWindow : NativeWindow {
         }
     }
 }
-"@ -ReferencedAssemblies System.Windows.Forms
+'@ -ReferencedAssemblies System.Windows.Forms
 
 $msgWindow = New-Object MessageWindow
 $msgWindow.CreateHandle((New-Object System.Windows.Forms.CreateParams))
