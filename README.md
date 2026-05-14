@@ -19,7 +19,7 @@ Two builds are attached to each [release](../../releases):
 | Build | Download | Size | Requirements |
 |-------|----------|------|-------------|
 | **Framework** | [ResolutionMonitor-framework.zip](https://github.com/lewyx/ResolutionMonitor/releases/latest/download/ResolutionMonitor-framework.zip) | ~20 KB | .NET Framework 4.x (preinstalled on Windows 10/11) |
-| **Standalone** | [ResolutionMonitor-standalone-x64.zip](https://github.com/lewyx/ResolutionMonitor/releases/latest/download/ResolutionMonitor-standalone-x64.zip) | ~70 MB | None (self-contained) |
+| **Standalone** | [ResolutionMonitor-standalone-x64.zip](https://github.com/lewyx/ResolutionMonitor/releases/latest/download/ResolutionMonitor-standalone-x64.zip) | ~150 MB | None (self-contained) |
 
 **Architecture coverage:**
 - The **Framework** build is compiled as **AnyCPU** — it runs natively on both 32-bit and 64-bit Windows.
