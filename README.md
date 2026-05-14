@@ -14,9 +14,18 @@ A lightweight Windows system tray tool that monitors your display resolution and
 
 ## Download
 
-Download **[ResolutionMonitor.vbs](ResolutionMonitor.vbs)** and double-click to run. No installation required.
+Two builds are attached to each [release](../../releases):
 
-Requires Windows with PowerShell 5.1+ (included in Windows 10/11).
+| Build | File | Size | Requirements |
+|-------|------|------|-------------|
+| **Framework** | `ResMon-framework.exe` | ~20 KB | .NET Framework 4.x (preinstalled on Windows 10/11) |
+| **Standalone** | `ResMon-standalone.exe` | ~70 MB | None (self-contained) |
+
+**Architecture coverage:**
+- The **Framework** build is compiled as **AnyCPU** — it runs natively on both 32-bit and 64-bit Windows.
+- The **Standalone** build targets **x64** only. For the rare case of 32-bit Windows, use the Framework build instead.
+
+Download the appropriate exe and run it. No installation required.
 
 ## Usage
 
@@ -30,19 +39,24 @@ Settings are persisted in the Windows Registry under `HKCU\Software\PanSoft\Reso
 
 ## Development
 
-The main source is `ResolutionMonitor.ps1`. To run directly:
+The source is a single C# file (`ResolutionMonitor.cs`).
 
-```powershell
-powershell -ExecutionPolicy Bypass -NoProfile -File ResolutionMonitor.ps1
+### Build with .NET Framework (AnyCPU, no SDK required)
+
+```cmd
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /optimize /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:ResMon.exe ResolutionMonitor.cs
 ```
 
-The distributable `ResolutionMonitor.vbs` is a VBScript wrapper that launches same embedded PowerShell script hidden (no console window). It is automatically rebuilt via a pre-commit hook whenever `ResolutionMonitor.ps1` changes.
+### Build with .NET 8
 
-To rebuild manually:
-
-```powershell
-powershell -ExecutionPolicy Bypass -NoProfile -File build.ps1
+```cmd
+dotnet build -c Release
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
 ```
+
+### CI
+
+A GitHub Actions workflow automatically builds both variants and attaches them to each release.
 
 ## License
 

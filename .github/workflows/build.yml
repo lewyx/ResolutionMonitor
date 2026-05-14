@@ -1,0 +1,68 @@
+name: Build and Release
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build-framework:
+    name: Build (.NET Framework - AnyCPU)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find Roslyn csc.exe
+        id: find-csc
+        shell: pwsh
+        run: |
+          $csc = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\*\*\MSBuild\Current\Bin\Roslyn\csc.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $csc) {
+            # Fallback to .NET Framework csc
+            $csc = Get-Item "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" -ErrorAction SilentlyContinue
+          }
+          if (-not $csc) { throw "csc.exe not found" }
+          Write-Host "Using csc.exe at: $($csc.FullName)"
+          echo "CSC_PATH=$($csc.FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Compile with csc.exe
+        shell: pwsh
+        run: |
+          & "${{ steps.find-csc.outputs.CSC_PATH }}" `
+            /target:winexe `
+            /platform:anycpu `
+            /optimize `
+            /r:System.Windows.Forms.dll `
+            /r:System.Drawing.dll `
+            /out:ResMon-framework.exe `
+            ResolutionMonitor.cs
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ResMon-framework.exe
+
+  build-standalone:
+    name: Build (.NET 8 Standalone - x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish self-contained single file
+        run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+
+      - name: Rename artifact
+        shell: pwsh
+        run: Move-Item publish\ResMon.exe ResMon-standalone.exe
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ResMon-standalone.exe

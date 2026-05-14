@@ -1,2 +1,9 @@
 /.*
+!/.github
 /CLAUDE.md
+bin/
+obj/
+publish/
+*.exe
+*.pdb
+*.user
