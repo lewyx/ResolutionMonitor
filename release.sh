@@ -22,12 +22,6 @@ if [ -z "$tag" ]; then
     exit 1
 fi
 
-# Check tag doesn't already exist
-if git rev-parse "$tag" >/dev/null 2>&1; then
-    echo "ERROR: Tag '$tag' already exists."
-    exit 1
-fi
-
 # Prompt for title (default to tag)
 read -p "Title [$tag]: " title
 title="${title:-$tag}"
@@ -48,8 +42,13 @@ if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
     exit 0
 fi
 
-# Create tag and release
-git tag "$tag"
+if git rev-parse "$tag" >/dev/null 2>&1; then
+    echo "Re-using existing tag."
+else
+    git tag "$tag"
+fi
+
+# Create release
 git push origin "$tag"
 gh release create "$tag" --title "$title" --notes "$notes"
 
