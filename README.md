@@ -16,16 +16,16 @@ A lightweight Windows system tray tool that monitors your display resolution and
 
 Two builds are attached to each [release](../../releases):
 
-| Build | File | Size | Requirements |
-|-------|------|------|-------------|
-| **Framework** | `ResMon-framework.exe` | ~20 KB | .NET Framework 4.x (preinstalled on Windows 10/11) |
-| **Standalone** | `ResMon-standalone.exe` | ~70 MB | None (self-contained) |
+| Build | Download | Size | Requirements |
+|-------|----------|------|-------------|
+| **Framework** | [ResolutionMonitor-framework.zip](https://github.com/lewyx/ResolutionMonitor/releases/latest/download/ResolutionMonitor-framework.zip) | ~20 KB | .NET Framework 4.x (preinstalled on Windows 10/11) |
+| **Standalone** | [ResolutionMonitor-standalone-x64.zip](https://github.com/lewyx/ResolutionMonitor/releases/latest/download/ResolutionMonitor-standalone-x64.zip) | ~70 MB | None (self-contained) |
 
 **Architecture coverage:**
 - The **Framework** build is compiled as **AnyCPU** — it runs natively on both 32-bit and 64-bit Windows.
 - The **Standalone** build targets **x64** only. For the rare case of 32-bit Windows, use the Framework build instead.
 
-Download the appropriate exe and run it. No installation required.
+Download the zip, extract `Resolution Monitor.exe`, and run it. No installation required.
 
 ## Usage
 
@@ -44,7 +44,7 @@ The source is a single C# file (`ResolutionMonitor.cs`).
 ### Build with .NET Framework (AnyCPU, no SDK required)
 
 ```cmd
-C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /optimize /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:ResMon.exe ResolutionMonitor.cs
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /optimize /r:System.Windows.Forms.dll /r:System.Drawing.dll "/out:Resolution Monitor.exe" ResolutionMonitor.cs
 ```
 
 ### Build with .NET 8

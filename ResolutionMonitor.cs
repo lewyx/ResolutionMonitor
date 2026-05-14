@@ -4,6 +4,7 @@
 
 using System;
 using System.Drawing;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Microsoft.Win32;
@@ -363,10 +364,19 @@ public static class InputDialog
 
 public class ResolutionMonitorApp
 {
-    const string AppVersion = "1.0";
+    static readonly string AppVersion = GetAppVersion();
     const string AppDeveloper = "PanSoft";
     const string AppShortName = "Resolution Monitor";
     static readonly string AppFullName = AppDeveloper + " " + AppShortName + " v" + AppVersion;
+
+    static string GetAppVersion()
+    {
+        object[] attrs = Assembly.GetExecutingAssembly()
+            .GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false);
+        if (attrs.Length > 0)
+            return ((AssemblyInformationalVersionAttribute)attrs[0]).InformationalVersion;
+        return Assembly.GetExecutingAssembly().GetName().Version.ToString();
+    }
     const string SettingsRegPath = @"Software\PanSoft\Resolution Monitor";
     const string AutoStartRegPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
