@@ -1,4 +1,4 @@
-# ResolutionMonitor - Resolution Monitor
+# ResolutionMonitor
 
 A lightweight Windows system tray tool that monitors your display resolution and DPI scaling, and lets you quickly switch to a preferred configuration.
 
